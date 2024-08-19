@@ -310,5 +310,6 @@ jobs:
         ./devscripts/run_tests.${{ matrix.run-tests-ext }}
     
     - name: Report results
+      if: always()
       uses: AryazE/auto-dylin/report@main
 
