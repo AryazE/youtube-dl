@@ -298,6 +298,8 @@ jobs:
           '    def test_python_impl(self):' \
           '        self.assertIn(platform.python_implementation().lower(), (os.environ["PYTHON_IMPL"], self.ver[0]))' \
           > test/test_python.py
+    - name: Instrument code
+      uses: AryazE/auto-dylin/instrument@main
     #-------- TESTS -------
     - name: Run tests
       if: ${{ contains(needs.select.outputs.test-set, matrix.ytdl-test-set ) }}
@@ -306,4 +308,7 @@ jobs:
         YTDL_TEST_SET: ${{ matrix.ytdl-test-set }}
       run: |
         ./devscripts/run_tests.${{ matrix.run-tests-ext }}
+    
+    - name: Report results
+      uses: AryazE/auto-dylin/report@main
 
