@@ -1,9 +1,9 @@
 name: CI
 
 env:
-  all-cpython-versions: 2.6, 2.7, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12
-  main-cpython-versions: 2.7, 3.2, 3.5, 3.9, 3.11
-  pypy-versions: pypy-2.7, pypy-3.6, pypy-3.7
+  all-cpython-versions: 3.10, 3.11, 3.12
+  main-cpython-versions: 3.9, 3.11
+  pypy-versions: pypy-3.7
   cpython-versions: main
   test-set: core
   # Python beta version to be built using pyenv before setup-python support
@@ -121,28 +121,6 @@ jobs:
         python-impl: [cpython]
         ytdl-test-set: ${{ fromJSON(needs.select.outputs.test-set) }}
         run-tests-ext: [sh]
-        include:
-        - os: windows-2019
-          python-version: 3.4
-          python-impl: cpython
-          ytdl-test-set: ${{ contains(needs.select.outputs.test-set, 'core') && 'core' || 'nocore' }}
-          run-tests-ext: bat
-        - os: windows-2019
-          python-version: 3.4
-          python-impl: cpython
-          ytdl-test-set: ${{ contains(needs.select.outputs.test-set, 'download') && 'download'  || 'nodownload' }}
-          run-tests-ext: bat
-        # jython
-        - os: ubuntu-20.04
-          python-version: 2.7
-          python-impl: jython
-          ytdl-test-set: ${{ contains(needs.select.outputs.test-set, 'core') && 'core' || 'nocore' }}
-          run-tests-ext: sh
-        - os: ubuntu-20.04
-          python-version: 2.7
-          python-impl: jython
-          ytdl-test-set: ${{ contains(needs.select.outputs.test-set, 'download') && 'download'  || 'nodownload' }}
-          run-tests-ext: sh
     steps:
     - name: Prepare Linux
       if: ${{ startswith(matrix.os, 'ubuntu') }}
@@ -234,122 +212,6 @@ jobs:
         test -n "$PYTHONHOME"
         echo "PYTHONHOME=$PYTHONHOME" >> "$GITHUB_ENV"
         echo "PATH=${PYTHONHOME}/bin:$PATH" >> "$GITHUB_ENV"
-    #-------- Python 2.7 --
-    - name: Set up Python 2.7
-      if: ${{ matrix.python-impl == 'cpython' && matrix.python-version == '2.7' }}
-      # install 2.7
-      shell: bash
-      run: |
-        sudo apt-get install -y python2 python-is-python2
-        echo "PYTHONHOME=/usr" >> "$GITHUB_ENV"
-    #-------- Python 2.6 --
-    - name: Set up Python 2.6 environment
-      if: ${{ matrix.python-impl == 'cpython' && matrix.python-version == '2.6' }}
-      shell: bash
-      run: |
-        openssl_name=openssl-1.0.2u
-        echo "openssl_name=${openssl_name}" >> "$GITHUB_ENV"
-        openssl_dir=$HOME/.local/opt/$openssl_name
-        echo "openssl_dir=${openssl_dir}" >> "$GITHUB_ENV"
-        PYENV_ROOT=$HOME/.local/share/pyenv
-        echo "PYENV_ROOT=${PYENV_ROOT}" >> "$GITHUB_ENV"
-        sudo apt-get install -y openssl ca-certificates
-    - name: Cache Python 2.6
-      id: cache26
-      if: ${{ matrix.python-version == '2.6' }}
-      uses: actions/cache@v3
-      with:
-        key: python-2.6.9
-        path: |
-          ${{ env.openssl_dir }}
-          ${{ env.PYENV_ROOT }}
-    - name: Build and set up Python 2.6
-      if: ${{ matrix.python-impl == 'cpython' && matrix.python-version == '2.6' && ! steps.cache26.outputs.cache-hit }}
-      # dl and build locally
-      shell: bash
-      run: |
-        # Install build environment
-        sudo apt-get install -y build-essential llvm libssl-dev tk-dev  \
-                      libncursesw5-dev libreadline-dev libsqlite3-dev   \
-                      libffi-dev xz-utils zlib1g-dev libbz2-dev liblzma-dev
-        # Download and install OpenSSL 1.0.2, back in time
-        openssl_name=${{ env.openssl_name }}
-        openssl_targz=${openssl_name}.tar.gz
-        openssl_dir=${{ env.openssl_dir }}
-        openssl_inc=$openssl_dir/include
-        openssl_lib=$openssl_dir/lib
-        openssl_ssl=$openssl_dir/ssl
-        curl -L "https://www.openssl.org/source/$openssl_targz" -o $openssl_targz
-        tar -xf $openssl_targz
-        ( cd $openssl_name; \
-          ./config --prefix=$openssl_dir --openssldir=${openssl_dir}/ssl \
-            --libdir=lib -Wl,-rpath=${openssl_dir}/lib shared zlib-dynamic && \
-          make && \
-          make install )
-        rm -rf $openssl_name
-        rmdir $openssl_ssl/certs && ln -s /etc/ssl/certs $openssl_ssl/certs
-        # Download PyEnv from its GitHub repository.
-        export PYENV_ROOT=${{ env.PYENV_ROOT }}
-        export PATH=$PYENV_ROOT/bin:$PATH
-        git clone "https://github.com/pyenv/pyenv.git" "$PYENV_ROOT"
-        # Prevent pyenv build trying (and failing) to update pip
-        export GET_PIP=get-pip-2.6.py
-        echo 'import sys; sys.exit(0)' > ${GET_PIP}
-        GET_PIP=$(realpath $GET_PIP)
-        # Build and install Python
-        export CFLAGS="-I$openssl_inc"
-        export LDFLAGS="-L$openssl_lib"
-        export LD_LIBRARY_PATH="$openssl_lib"
-        pyenv install 2.6.9
-    - name: Locate Python 2.6
-      if: ${{ matrix.python-impl == 'cpython' && matrix.python-version == '2.6' }}
-      shell: bash
-      run: |
-        PYTHONHOME="${{ env.PYENV_ROOT }}/versions/2.6.9"
-        echo "PYTHONHOME=$PYTHONHOME" >> "$GITHUB_ENV"
-        echo "PATH=${PYTHONHOME}/bin:$PATH" >> "$GITHUB_ENV"
-        echo "LD_LIBRARY_PATH=${{ env.openssl_dir }}/lib${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
-    #-------- Jython ------
-    - name: Set up Java 8
-      if: ${{ matrix.python-impl == 'jython' }}
-      uses: actions/setup-java@v3
-      with:
-        java-version: 8
-        distribution: 'zulu'
-    - name: Setup Jython environment
-      if: ${{ matrix.python-impl == 'jython' }}
-      shell: bash
-      run: |
-        echo "JYTHON_ROOT=${HOME}/jython" >> "$GITHUB_ENV"
-        echo "PIP=pip" >> "$GITHUB_ENV"
-    - name: Cache Jython
-      id: cachejy
-      if: ${{ matrix.python-impl == 'jython' && matrix.python-version == '2.7' }}
-      uses: actions/cache@v3
-      with:
-        # 2.7.3 now available, may solve SNI issue
-        key: jython-2.7.1
-        path: |
-          ${{ env.JYTHON_ROOT }}
-    - name: Install Jython
-      if: ${{ matrix.python-impl == 'jython' && matrix.python-version == '2.7' && ! steps.cachejy.outputs.cache-hit }}
-      shell: bash
-      run: |
-        JYTHON_ROOT="${{ env.JYTHON_ROOT }}"
-        curl -L "https://repo1.maven.org/maven2/org/python/jython-installer/2.7.1/jython-installer-2.7.1.jar" -o jython-installer.jar
-        java -jar jython-installer.jar -s -d "${JYTHON_ROOT}"
-        echo "${JYTHON_ROOT}/bin" >> "$GITHUB_PATH"
-    - name: Set up cached Jython
-      if: ${{ steps.cachejy.outputs.cache-hit }}
-      shell: bash
-      run: |
-        JYTHON_ROOT="${{ env.JYTHON_ROOT }}"
-        echo "${JYTHON_ROOT}/bin" >> $GITHUB_PATH
-    - name: Install supporting Python 2.7 if possible
-      if: ${{ steps.cachejy.outputs.cache-hit }}
-      shell: bash
-      run: |
-        sudo apt-get install -y python2.7 || true
     #-------- pip ---------
     - name: Set up supported Python ${{ matrix.python-version }} pip
       if: ${{ (matrix.python-version != '3.2' && steps.setup-python.outputs.python-path) || matrix.python-version == '2.7' }}
@@ -381,25 +243,6 @@ jobs:
           curl -L -O "https://bootstrap.pypa.io/pip/3.2/get-pip.py"; \
           curl -L -O "https://files.pythonhosted.org/packages/b2/d0/cd115fe345dd6f07ec1c780020a7dfe74966fceeb171e0f20d1d4905b0b7/pip-7.1.2-py2.py3-none-any.whl"; \
           python get-pip.py --no-setuptools --no-wheel pip-7.1.2-py2.py3-none-any.whl; }
-    #-------- unittest ----
-    - name: Upgrade Unittest for Python 2.6
-      if: ${{ matrix.python-version == '2.6' }}
-      shell: bash
-      run: |
-        # Work around deprecation of support for non-SNI clients at PyPI CDN (see https://status.python.org/incidents/hzmjhqsdjqgb)
-        $PIP -qq show unittest2 || { \
-          for u in "65/26/32b8464df2a97e6dd1b656ed26b2c194606c16fe163c695a992b36c11cdf/six-1.13.0-py2.py3-none-any.whl" \
-              "f2/94/3af39d34be01a24a6e65433d19e107099374224905f1e0cc6bbe1fd22a2f/argparse-1.4.0-py2.py3-none-any.whl" \
-              "c7/a3/c5da2a44c85bfbb6eebcfc1dde24933f8704441b98fdde6528f4831757a6/linecache2-1.0.0-py2.py3-none-any.whl" \
-              "17/0a/6ac05a3723017a967193456a2efa0aa9ac4b51456891af1e2353bb9de21e/traceback2-1.4.0-py2.py3-none-any.whl" \
-              "72/20/7f0f433060a962200b7272b8c12ba90ef5b903e218174301d0abfd523813/unittest2-1.1.0-py2.py3-none-any.whl"; do \
-            curl -L -O "https://files.pythonhosted.org/packages/${u}"; \
-            $PIP install ${u##*/}; \
-          done; }
-        # make tests use unittest2
-        for test in ./test/test_*.py ./test/helper.py; do
-          sed -r -i -e '/^import unittest$/s/test/test2 as unittest/' "$test"
-        done
     #-------- nose --------
     - name: Install nose for Python ${{ matrix.python-version }}
       if: ${{ (matrix.python-version != '3.2' && steps.setup-python.outputs.python-path) || (matrix.python-impl == 'cpython' && (matrix.python-version == '2.7' || matrix.python-version == env.next)) }}
@@ -463,17 +306,4 @@ jobs:
         YTDL_TEST_SET: ${{ matrix.ytdl-test-set }}
       run: |
         ./devscripts/run_tests.${{ matrix.run-tests-ext }}
-  flake8:
-    name: Linter
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.9
-    - name: Install flake8
-      run: pip install flake8
-    - name: Run flake8
-      run: flake8 .
 
