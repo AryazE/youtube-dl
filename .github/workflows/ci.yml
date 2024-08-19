@@ -3,7 +3,7 @@ name: CI
 env:
   all-cpython-versions: 3.10, 3.11, 3.12
   main-cpython-versions: 3.9, 3.11
-  pypy-versions: pypy-3.7
+  pypy-versions: pypy-3.10
   cpython-versions: main
   test-set: core
   # Python beta version to be built using pyenv before setup-python support
