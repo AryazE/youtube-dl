@@ -111,7 +111,7 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: true
       PIP_NO_PYTHON_VERSION_WARNING: true
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-20.04]
         python-version: ${{ fromJSON(needs.select.outputs.cpython-versions) }}
