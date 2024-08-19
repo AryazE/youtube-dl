@@ -3,6 +3,7 @@ name: CI
 env:
   all-cpython-versions: 3.10, 3.11, 3.12
   main-cpython-versions: 3.9, 3.11
+  pypy-versions: pypy-3.10
   cpython-versions: main
   test-set: core
   # Python beta version to be built using pyenv before setup-python support
@@ -95,6 +96,8 @@ jobs:
           versions="${{ env.all-cpython-versions }}"; else \
           versions="${{ env.main-cpython-versions }}"; \
         fi
+        printf 'cpython-versions=%s\n' \
+          "$(json_list ${versions}${versions:+, })" >> "$GITHUB_OUTPUT"
         # versions with a special get-pip.py in a per-version subdirectory
         printf 'own-pip-versions=%s\n' \
           "$(json_list 2.6, 2.7, 3.2, 3.3, 3.4, 3.5, 3.6)" >> "$GITHUB_OUTPUT"
@@ -111,7 +114,7 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: true
       PIP_NO_PYTHON_VERSION_WARNING: true
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [ubuntu-20.04]
         python-version: ${{ fromJSON(needs.select.outputs.cpython-versions) }}
